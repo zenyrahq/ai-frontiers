@@ -228,7 +228,6 @@ class TestSearchService:
         """Test hybrid search combines vector and full-text results."""
         # Arrange - mock vector search
         mock_content1 = create_mock_content(sample_content_data[0])
-        mock_content2 = create_mock_content(sample_content_data[1])
 
         # First call for vector search
         vector_result = MagicMock()

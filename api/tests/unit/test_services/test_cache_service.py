@@ -3,7 +3,7 @@ Unit tests for CacheService.
 Tests match the actual implementation in services/cache_service.py
 """
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 import json
 
 from pydantic import BaseModel
@@ -395,3 +395,4 @@ class TestCacheService:
         # Note: decorator uses internal get/set, not mock_redis directly
         # This test validates the decorator structure
         assert result1 == 10
+        assert result2 == 10  # Same result from cache
