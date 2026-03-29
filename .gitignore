@@ -81,6 +81,7 @@ docs-private/
 
 # Claude configuration (private)
 .claude/
+CLAUDE.md
 
 # Build artifacts
 *.pyc
