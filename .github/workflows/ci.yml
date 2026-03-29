@@ -223,7 +223,7 @@ jobs:
 
       - name: Build API image
         run: |
-          docker build -t ai-frontiers-api:test -f api/Dockerfile api/
+          docker build -t ai-frontiers-api:test -f api/Dockerfile .
 
       - name: Build Frontend image
         run: |

@@ -1,4 +1,5 @@
 # API Service Dockerfile - Optimized for China
+# Build context: project root
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -14,16 +15,16 @@ RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debia
 # Use Tsinghua mirror for pip
 RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
-# Copy requirements
+# Copy requirements from project root
 COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy application code from api directory
 COPY api/ .
 
-# Copy scripts directory
+# Copy scripts directory from project root
 COPY scripts/ ./scripts/
 
 EXPOSE 8000
