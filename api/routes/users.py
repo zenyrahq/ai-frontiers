@@ -3,10 +3,9 @@ User related router
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 from core.database import get_async_db
-from models.models import User
 
 router = APIRouter()
 

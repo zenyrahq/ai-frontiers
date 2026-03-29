@@ -7,16 +7,12 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime, timedelta
 from loguru import logger
-from sqlalchemy import select, and_, or_, func, text
-from sqlalchemy.ext.asyncio import AsyncSession
-import numpy as np
-import json
+from sqlalchemy import select, and_, text
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from models.models import Content
 from core.database import AsyncSessionLocal
-from core.config import settings
 
 
 class SearchService:
@@ -66,7 +62,7 @@ class SearchService:
                     text(f"(1 - (embedding <=> '{embedding_str}'::vector)) as similarity")
                 ).where(
                     and_(
-                        Content.is_processed == True,
+                        Content.is_processed.is_(True),
                         Content.embedding.isnot(None)
                     )
                 )
@@ -123,7 +119,7 @@ class SearchService:
             try:
                 # Build search vector query
                 # Search in title, summary, and tags
-                search_query = f"""
+                search_query = """
                     SELECT
                         c.*,
                         ts_rank_cd(
@@ -307,7 +303,7 @@ class SearchService:
                 select(Content)
                 .where(
                     and_(
-                        Content.is_processed == True,
+                        Content.is_processed.is_(True),
                         Content.category == category
                     )
                 )
@@ -340,7 +336,7 @@ class SearchService:
             List of Content objects
         """
         async with AsyncSessionLocal() as session:
-            query = select(Content).where(Content.is_processed == True)
+            query = select(Content).where(Content.is_processed.is_(True))
 
             if match_all:
                 # All tags must be present
@@ -379,7 +375,7 @@ class SearchService:
 
             query = select(Content).where(
                 and_(
-                    Content.is_processed == True,
+                    Content.is_processed.is_(True),
                     Content.published_at >= since
                 )
             ).order_by(
