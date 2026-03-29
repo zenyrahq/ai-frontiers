@@ -17,7 +17,11 @@ const customJestConfig = {
     // Handle CSS imports (without CSS modules)
     '^.+\\.(css|sass|scss)$': '<rootDir>/__mocks__/styleMock.js',
   },
-  testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/.next/'],
+  testPathIgnorePatterns: [
+    '<rootDir>/node_modules/',
+    '<rootDir>/.next/',
+    '<rootDir>/e2e/',  // E2E tests use Playwright, not Jest
+  ],
   collectCoverageFrom: [
     'src/**/*.{js,jsx,ts,tsx}',
     '!src/**/*.d.ts',

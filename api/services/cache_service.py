@@ -6,7 +6,11 @@ Cache-aside pattern with automatic serialization.
 """
 import json
 import hashlib
-from typing import Optional, Any, Callable, TypeVar, ParamSpec
+from typing import Optional, Any, Callable, TypeVar
+try:
+    from typing import ParamSpec
+except ImportError:
+    from typing_extensions import ParamSpec
 from functools import wraps
 import logging
 
