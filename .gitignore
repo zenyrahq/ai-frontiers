@@ -79,6 +79,9 @@ credentials.json
 # Private documentation (contains personal info)
 docs-private/
 
+# Claude configuration (private)
+.claude/
+
 # Build artifacts
 *.pyc
 *.pyo
