@@ -1,0 +1,5 @@
+# arXiv Crawler Requirements
+feedparser==6.0.11
+aiohttp==3.9.3
+apscheduler==3.10.4
+loguru==0.7.2

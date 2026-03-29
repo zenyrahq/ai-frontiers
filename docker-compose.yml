@@ -1,0 +1,184 @@
+version: '3.8'
+
+services:
+  # PostgreSQL データベース
+  postgres:
+    image: postgres:15-alpine
+    container_name: aifrontiers-postgres
+    environment:
+      POSTGRES_USER: aifrontiers
+      POSTGRES_PASSWORD: aifrontiers_password
+      POSTGRES_DB: aifrontiers
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./deployment/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aifrontiers"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aifrontiers-network
+
+  # Redis キャッシュ & キュー
+  redis:
+    image: redis:7-alpine
+    container_name: aifrontiers-redis
+    command: redis-server --appendonly yes --requirepass aifrontiers_redis_pass
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - aifrontiers-network
+
+  # Elasticsearch 検索エンジン
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: aifrontiers-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - aifrontiers-network
+
+  # Kibana (開発環境のみ)
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: aifrontiers-kibana
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    profiles:
+      - dev
+    networks:
+      - aifrontiers-network
+
+  # Prometheus モニタリング
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: aifrontiers-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deployment/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    profiles:
+      - monitoring
+    networks:
+      - aifrontiers-network
+
+  # Grafana 可視化
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: aifrontiers-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: redis-datasource
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./deployment/grafana/dashboards:/etc/grafana/provisioning/dashboards
+    depends_on:
+      - prometheus
+    profiles:
+      - monitoring
+    networks:
+      - aifrontiers-network
+
+  # API サービス (開発用)
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: aifrontiers-api
+    environment:
+      - DATABASE_URL=postgresql://aifrontiers:aifrontiers_password@postgres:5432/aifrontiers
+      - REDIS_URL=redis://:aifrontiers_redis_pass@redis:6379/0
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./api:/app
+      - /app/.venv  # venvを除外
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    profiles:
+      - dev
+    networks:
+      - aifrontiers-network
+
+  # クローラーサービス (開発用)
+  crawler:
+    build:
+      context: ./crawler
+      dockerfile: Dockerfile
+    container_name: aifrontiers-crawler
+    environment:
+      - DATABASE_URL=postgresql://aifrontiers:aifrontiers_password@postgres:5432/aifrontiers
+      - REDIS_URL=redis://:aifrontiers_redis_pass@redis:6379/0
+    volumes:
+      - ./crawler:/app
+    depends_on:
+      - postgres
+      - redis
+    profiles:
+      - dev
+    networks:
+      - aifrontiers-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  es_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  aifrontiers-network:
+    driver: bridge
+
+# 使用方法:
+# 基本サービスのみ起動: docker-compose up -d
+# 開発環境すべて起動: docker-compose --profile dev up -d
+# モニタリング付き起動: docker-compose --profile dev --profile monitoring up -d

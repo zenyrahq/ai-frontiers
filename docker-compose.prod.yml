@@ -1,0 +1,121 @@
+# Production Docker Compose
+# 生产环境部署配置
+
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:16-alpine
+    container_name: aifrontiers-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aifrontiers}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aifrontiers_password}
+      POSTGRES_DB: ${POSTGRES_DB:-aifrontiers}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./deployment/init-db-simple.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aifrontiers}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aifrontiers-network
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: aifrontiers-redis
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-aifrontiers_redis_pass}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-aifrontiers_redis_pass}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - aifrontiers-network
+
+  # 后端 API 服务
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: aifrontiers-api
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-aifrontiers}:${POSTGRES_PASSWORD:-aifrontiers_password}@postgres:5432/${POSTGRES_DB:-aifrontiers}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-aifrontiers_redis_pass}@redis:6379/0
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ENVIRONMENT=production
+      - DEBUG=false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - aifrontiers-network
+
+  # 前端服务
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=/api
+    container_name: aifrontiers-frontend
+    restart: always
+    environment:
+      - NEXT_PUBLIC_API_URL=/api
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - aifrontiers-network
+
+  # Nginx 反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: aifrontiers-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deployment/nginx/nginx-simple.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+      - frontend
+    networks:
+      - aifrontiers-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  aifrontiers-network:
+    driver: bridge
+
+# 使用方法:
+# 1. 创建 .env 文件配置环境变量
+# 2. 运行: docker-compose -f docker-compose.prod.yml up -d
+# 3. 查看日志: docker-compose -f docker-compose.prod.yml logs -f
