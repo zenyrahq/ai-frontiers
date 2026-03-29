@@ -55,7 +55,7 @@ async def startup_event():
 
     # Test database connection
     try:
-        async with async_engine.connect() as conn:
+        async with async_engine.connect():
             logger.info("Database connection successful")
     except Exception as e:
         logger.error(f"Database connection failed: {e}")

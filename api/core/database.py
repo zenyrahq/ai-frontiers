@@ -5,7 +5,6 @@ Connect to PostgreSQL using SQLAlchemy
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
-from sqlalchemy.pool import NullPool
 
 from core.config import settings
 
