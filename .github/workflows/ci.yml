@@ -18,6 +18,31 @@ jobs:
     name: Backend Tests
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_ai_frontiers
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -31,22 +56,36 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install pytest pytest-asyncio pytest-cov
+          pip install pytest pytest-asyncio pytest-cov pytest-mock httpx
 
       - name: Run linting
         run: |
           pip install ruff
           ruff check api/ --output-format=github --ignore=E402
 
-      - name: Run tests
+      - name: Run unit tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test_ai_frontiers
+          REDIS_URL: redis://localhost:6379/0
+          TESTING: "true"
         run: |
           cd api
-          pytest tests/ -v --cov=. --cov-report=xml || echo "No tests yet"
+          pytest tests/unit -v --cov=. --cov-report=xml:coverage-unit.xml
+
+      - name: Run integration tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test_ai_frontiers
+          REDIS_URL: redis://localhost:6379/0
+          TESTING: "true"
+        run: |
+          cd api
+          pytest tests/integration -v --cov=. --cov-report=xml:coverage-integration.xml
+        continue-on-error: true
 
       - name: Upload coverage
         uses: codecov/codecov-action@v3
         with:
-          files: ./api/coverage.xml
+          files: ./api/coverage-unit.xml,./api/coverage-integration.xml
           fail_ci_if_error: false
 
   # ====================
@@ -82,10 +121,103 @@ jobs:
           cd frontend
           npx tsc --noEmit
 
-      - name: Build
+      - name: Run unit tests
+        run: |
+          cd frontend
+          npm run test:ci
+        continue-on-error: true
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./frontend/coverage/lcov.info
+          fail_ci_if_error: false
+
+  # ====================
+  # E2E Tests
+  # ====================
+  e2e-test:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test]
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_ai_frontiers
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Build frontend
         run: |
           cd frontend
           npm run build
+
+      - name: Start services
+        env:
+          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test_ai_frontiers
+          REDIS_URL: redis://localhost:6379/0
+          TESTING: "true"
+        run: |
+          # Start API in background
+          pip install -r requirements.txt
+          cd api && uvicorn main:app --host 0.0.0.0 --port 8000 &
+          cd ..
+
+          # Start frontend in background
+          cd frontend && npm run start &
+          cd ..
+
+          # Wait for services to be ready
+          sleep 30
+
+      - name: Run E2E tests
+        run: |
+          cd frontend
+          E2E_BASE_URL=http://localhost:3000 npx playwright test --project=chromium
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 30
 
   # ====================
   # Docker Build Test
@@ -113,7 +245,7 @@ jobs:
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [docker-build]
+    needs: [docker-build, e2e-test]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
@@ -136,7 +268,7 @@ jobs:
       - name: Health check
         run: |
           sleep 30
-          curl -f ${{ secrets.SERVER_HOST }}:8000/health || exit 1
+          curl -f ${{ secrets.PRODUCTION_URL }}/health || exit 1
 
       - name: Notify on success
         if: success()
