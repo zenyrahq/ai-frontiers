@@ -63,29 +63,19 @@ jobs:
           pip install ruff
           ruff check api/ --output-format=github --ignore=E402
 
-      - name: Run unit tests
+      - name: Run all tests with coverage
         env:
           DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test_ai_frontiers
           REDIS_URL: redis://localhost:6379/0
           TESTING: "true"
         run: |
           cd api
-          pytest tests/unit -v --cov=. --cov-report=xml:coverage-unit.xml
-
-      - name: Run integration tests
-        env:
-          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test_ai_frontiers
-          REDIS_URL: redis://localhost:6379/0
-          TESTING: "true"
-        run: |
-          cd api
-          pytest tests/integration -v --cov=. --cov-report=xml:coverage-integration.xml
-        continue-on-error: true
+          pytest tests/ -v --cov=. --cov-report=xml:coverage.xml --cov-fail-under=70
 
       - name: Upload coverage
         uses: codecov/codecov-action@v3
         with:
-          files: ./api/coverage-unit.xml,./api/coverage-integration.xml
+          files: ./api/coverage.xml
           fail_ci_if_error: false
 
   # ====================
