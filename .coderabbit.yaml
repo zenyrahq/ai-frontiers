@@ -1,0 +1,93 @@
+# CodeRabbit Configuration
+# https://coderabbit.ai/docs/configuration
+
+# Language settings
+language: en
+
+# Review settings
+reviews:
+  # Auto-review on PR creation
+  auto_review:
+    enabled: true
+    # Review draft PRs
+    drafts: false
+
+  # Review profile: assertive, chill, or custom
+  profile: assertive
+
+  # Request changes for critical issues
+  request_changes: true
+
+  # High-level summary
+  high_level_summary: true
+
+  # Review status comment
+  review_status: true
+
+  # Sequence diagram generation
+  sequence_diagrams: false
+
+  # Assess linked issues
+  assess_linked_issues: true
+
+# Path filters (what to review)
+path_filters:
+  - "api/**"
+  - "frontend/src/**"
+  - "crawler/**"
+  - "processing/**"
+  - "!**/*.test.*"
+  - "!**/*.spec.*"
+  - "!**/node_modules/**"
+  - "!**/__pycache__/**"
+
+# Path instructions (custom review rules)
+path_instructions:
+  - path: "api/**"
+    instructions: |
+      Review Python code for:
+      - Type hints completeness
+      - Async/await best practices
+      - FastAPI patterns
+      - SQL injection prevention
+      - Error handling
+
+  - path: "frontend/src/**"
+    instructions: |
+      Review TypeScript/React code for:
+      - Type safety
+      - React hooks best practices
+      - Accessibility (a11y)
+      - Performance (useMemo, useCallback)
+      - XSS prevention
+
+  - path: "**/*.py"
+    instructions: |
+      Check for:
+      - SonarQube compliance (no BLOCKER/CRITICAL/MAJOR/MINOR)
+      - English comments only
+      - Docstrings for public functions
+
+# Tools configuration
+tools:
+  # Linting
+  ruff:
+    enabled: true
+
+  # Security scanning
+  bandit:
+    enabled: true
+
+  # Dependency scanning
+  safety:
+    enabled: true
+
+# Notifications
+# Only notify on critical failures that block review
+notifications:
+  # Disable default notifications
+  enabled: false
+
+# Chat settings (for questions)
+chat:
+  auto_reply: true

@@ -1,0 +1,84 @@
+name: CodeRabbit Failure Notification
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  notify-on-failure:
+    runs-on: ubuntu-latest
+    # Only run if CodeRabbit review failed critically
+    if: |
+      github.event.review.user.login == 'coderabbitai[bot]' &&
+      github.event.review.state == 'changes_requested' &&
+      contains(github.event.review.body, 'CRITICAL') || contains(github.event.review.body, 'unable to review')
+
+    steps:
+      - name: Send email via Resend
+        uses: resend/resend-action@v0
+        with:
+          api-key: ${{ secrets.RESEND_API_KEY }}
+          from: 'AI Frontiers CI/CD <notifications@aifrontiers.com>'
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          subject: |
+            [AI Frontiers] CodeRabbit Review Failed - PR #${{ github.event.pull_request.number }}
+          html: |
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: #dc2626; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
+                .content { background: #f9fafb; padding: 20px; border-radius: 0 0 8px 8px; }
+                .info { background: white; padding: 15px; border-radius: 8px; margin: 10px 0; }
+                .label { color: #6b7280; font-size: 12px; text-transform: uppercase; }
+                .value { color: #111827; font-size: 16px; margin-top: 4px; }
+                .btn { display: inline-block; background: #3b82f6; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="header">
+                  <h1>⚠️ CodeRabbit Review Failed</h1>
+                </div>
+                <div class="content">
+                  <p>CodeRabbit encountered critical issues and was unable to complete the review.</p>
+
+                  <div class="info">
+                    <div class="label">Repository</div>
+                    <div class="value">${{ github.repository }}</div>
+                  </div>
+
+                  <div class="info">
+                    <div class="label">Pull Request</div>
+                    <div class="value">#${{ github.event.pull_request.number }} - ${{ github.event.pull_request.title }}</div>
+                  </div>
+
+                  <div class="info">
+                    <div class="label">Author</div>
+                    <div class="value">@${{ github.event.pull_request.user.login }}</div>
+                  </div>
+
+                  <div class="info">
+                    <div class="label">Review Status</div>
+                    <div class="value">${{ github.event.review.state }}</div>
+                  </div>
+
+                  <p style="margin-top: 20px;">
+                    <a href="${{ github.event.pull_request.html_url }}" class="btn">View Pull Request</a>
+                  </p>
+
+                  <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
+                    This is an automated notification from AI Frontiers CI/CD.
+                  </p>
+                </div>
+              </div>
+            </body>
+            </html>
+
+      - name: Log failure
+        run: |
+          echo "CodeRabbit review failed for PR #${{ github.event.pull_request.number }}"
+          echo "Manual review required"
+          echo "Email sent to ${{ secrets.NOTIFICATION_EMAIL }}"
