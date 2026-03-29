@@ -4,12 +4,11 @@ Pytest configuration and fixtures for AI Frontiers API tests.
 import asyncio
 import os
 import json
-from typing import AsyncGenerator, Generator
-from unittest.mock import AsyncMock, MagicMock, patch
+from typing import Generator
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+
 
 # Set test environment before importing app
 os.environ["TESTING"] = "true"
@@ -40,6 +39,7 @@ def mock_redis() -> AsyncMock:
 @pytest.fixture
 def mock_db_session() -> AsyncMock:
     """Mock database session for unit tests."""
+    from sqlalchemy.ext.asyncio import AsyncSession
     session = AsyncMock(spec=AsyncSession)
     session.execute = AsyncMock()
     session.scalar = AsyncMock()

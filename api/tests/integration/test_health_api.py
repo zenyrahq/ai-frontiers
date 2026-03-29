@@ -3,7 +3,6 @@ Integration tests for Health API endpoints.
 """
 import pytest
 from httpx import AsyncClient, ASGITransport
-from unittest.mock import patch, AsyncMock
 
 
 @pytest.fixture
