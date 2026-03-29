@@ -21,8 +21,22 @@
 | 1 | **Docs MUST be updated** after feature completion → `.claude/constraints/documentation-rules.md` |
 | 2 | **Comments MUST be in English** → `.claude/constraints/code-quality.md` |
 | 3 | **SonarQube compliant** - No BLOCKER/CRITICAL/MAJOR/MINOR |
-| 4 | **Private info** in `docs-private/`, never upload to GitHub |
+| 4 | **Document classification** - `docs/` (public) vs `docs-private/` (private, never upload) |
 | 5 | **Production** uses `docker-compose.prod.yml` |
+
+### Document Directory Classification
+
+```
+docs/           → Public (Upload to GitHub)
+                  - Technical docs: API, Architecture, Deployment
+                  - Design docs: System design, Technical decisions
+                  - Development docs: Guides, References
+
+docs-private/   → Private (NEVER upload to GitHub)
+                  - Project management: PM handbook, Plans, Roadmaps
+                  - Claude configuration: Claude config guides
+                  - User-specified files: Any file user marks as private
+```
 
 ---
 
