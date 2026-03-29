@@ -7,7 +7,6 @@ Cache-aside pattern with automatic serialization.
 import json
 import hashlib
 from typing import Optional, Any, Callable, TypeVar, ParamSpec
-from datetime import timedelta
 from functools import wraps
 import logging
 

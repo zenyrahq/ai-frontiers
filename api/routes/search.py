@@ -5,14 +5,14 @@ Search API Routes with caching support
 import sys
 from pathlib import Path
 from typing import List, Optional
-from fastapi import APIRouter, Query, HTTPException, Depends
+from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel, Field
 import hashlib
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "processing"))
 
-from services.search_service import get_search_service, SearchService
+from services.search_service import get_search_service
 from services.cache_service import cache
 from loguru import logger
 

@@ -30,14 +30,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd api
           pip install -r requirements.txt
           pip install pytest pytest-asyncio pytest-cov
 
       - name: Run linting
         run: |
           pip install ruff
-          ruff check api/ --output-format=github
+          ruff check api/ --output-format=github --ignore=E402
 
       - name: Run tests
         run: |
