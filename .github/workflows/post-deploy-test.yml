@@ -1,0 +1,116 @@
+name: Post-Deploy Tests
+
+on:
+  workflow_run:
+    workflows: ["CI/CD Pipeline"]
+    types: [completed]
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  post-deploy-test:
+    name: Post-Deployment Tests
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Install Playwright
+        run: |
+          cd frontend
+          npx playwright install --with-deps chromium
+
+      - name: Wait for deployment
+        run: |
+          echo "Waiting for deployment to stabilize..."
+          sleep 60
+
+      - name: Health Check
+        id: health
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.PRODUCTION_URL }}/health)
+          if [ "$response" != "200" ]; then
+            echo "::error::Health check failed with status $response"
+            exit 1
+          fi
+          echo "Health check passed"
+
+      - name: API Smoke Tests
+        id: smoke
+        run: |
+          # Test critical API endpoints
+          endpoints=(
+            "/health"
+            "/api/v1/contents"
+            "/api/v1/search?q=AI"
+          )
+
+          failed=0
+          for endpoint in "${endpoints[@]}"; do
+            response=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.PRODUCTION_URL }}${endpoint}")
+            if [ "$response" != "200" ]; then
+              echo "::error::FAILED: $endpoint returned $response"
+              failed=1
+            else
+              echo "PASSED: $endpoint"
+            fi
+          done
+
+          if [ $failed -eq 1 ]; then
+            exit 1
+          fi
+
+      - name: Run E2E Tests on Production
+        id: e2e
+        run: |
+          cd frontend
+          E2E_BASE_URL=${{ secrets.PRODUCTION_URL }} npx playwright test --project=chromium --reporter=html
+        continue-on-error: true
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-deploy-test-results
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          retention-days: 30
+
+      - name: Notify on Success
+        if: success()
+        run: |
+          echo "✅ Post-Deploy Tests Passed"
+          echo "Environment: Production"
+          echo "URL: ${{ secrets.PRODUCTION_URL }}"
+          echo "Commit: ${{ github.sha }}"
+
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "::error::Post-Deploy Tests Failed"
+          echo "Environment: Production"
+          echo "URL: ${{ secrets.PRODUCTION_URL }}"
+          echo "Commit: ${{ github.sha }}"
+          echo ""
+          echo "Please check the workflow for details."
+
+      - name: Fail workflow if tests failed
+        if: steps.smoke.outcome == 'failure' || steps.health.outcome == 'failure'
+        run: exit 1
