@@ -4,16 +4,20 @@ const { ContentCard } = require('@/components/content/ContentCard')
 
 // Mock Next.js Link
 jest.mock('next/link', () => {
-  return ({ children, href }) => {
+  const MockLink = ({ children, href }) => {
     return <a href={href}>{children}</a>
   }
+  MockLink.displayName = 'MockLink'
+  return MockLink
 })
 
 // Mock Next.js Image
 jest.mock('next/image', () => {
-  return ({ src, alt, fill, className }) => {
+  const MockImage = ({ src, alt, fill, className }) => {
     return <img src={src} alt={alt} className={className} data-testid="next-image" />
   }
+  MockImage.displayName = 'MockImage'
+  return MockImage
 })
 
 // Sample content for testing
