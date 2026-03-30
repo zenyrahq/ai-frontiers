@@ -1,19 +1,15 @@
-# API Service Dockerfile - Optimized for China
+# API Service Dockerfile
 # Build context: project root
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Use Aliyun mirror for apt
-RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
-    apt-get update && apt-get install -y --no-install-recommends \
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpq-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
-
-# Use Tsinghua mirror for pip
-RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
 # Copy requirements from project root
 COPY requirements.txt .
