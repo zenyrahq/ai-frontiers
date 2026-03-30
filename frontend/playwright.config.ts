@@ -22,10 +22,14 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command: 'npm run start',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120000,
-  },
+  // Only use webServer for local development
+  // In CI, services are started manually before running tests
+  webServer: process.env.CI
+    ? undefined
+    : {
+        command: 'npm run start',
+        url: 'http://localhost:3000',
+        reuseExistingServer: true,
+        timeout: 120000,
+      },
 })

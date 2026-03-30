@@ -175,6 +175,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          pip install -r requirements.txt
           cd frontend
           npm ci
           npx playwright install --with-deps chromium
@@ -184,6 +185,18 @@ jobs:
           cd frontend
           npm run build
 
+      - name: Initialize database
+        env:
+          DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test_ai_frontiers
+          REDIS_URL: redis://localhost:6379/0
+          TESTING: "true"
+        run: |
+          # Run database migrations
+          cd api && alembic upgrade head && cd ..
+
+          # Generate test data
+          python scripts/generate_test_data.py
+
       - name: Start services
         env:
           DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/test_ai_frontiers
@@ -191,7 +204,6 @@ jobs:
           TESTING: "true"
         run: |
           # Start API in background
-          pip install -r requirements.txt
           cd api && uvicorn main:app --host 0.0.0.0 --port 8000 &
           cd ..
 
@@ -199,8 +211,24 @@ jobs:
           cd frontend && npm run start &
           cd ..
 
-          # Wait for services to be ready
-          sleep 30
+          # Wait for services to be ready with health checks
+          echo "Waiting for API to be ready..."
+          for i in {1..30}; do
+            if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+              echo "API is ready!"
+              break
+            fi
+            sleep 2
+          done
+
+          echo "Waiting for frontend to be ready..."
+          for i in {1..30}; do
+            if curl -sf http://localhost:3000 > /dev/null 2>&1; then
+              echo "Frontend is ready!"
+              break
+            fi
+            sleep 2
+          done
 
       - name: Run E2E tests
         run: |
