@@ -4,6 +4,7 @@ Create database tables directly with SQL
 Bypass alembic migrations to avoid pgvector import issues in CI
 """
 import sys
+import os
 import asyncio
 from pathlib import Path
 from datetime import datetime, timedelta
