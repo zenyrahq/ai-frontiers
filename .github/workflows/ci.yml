@@ -191,7 +191,7 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
           TESTING: "true"
         run: |
-          # Run database migrations
+          # Run database migrations (must be in api directory for relative paths)
           cd api && alembic upgrade head && cd ..
 
           # Generate test data
