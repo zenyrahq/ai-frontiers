@@ -191,12 +191,7 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
           TESTING: "true"
         run: |
-          # Skip alembic migrations - create tables directly with SQL
-          cd api && alembic upgrade head || echo "Skipping alembic migrations (cached)"
-
-          cd ..
-
-          # Create tables directly with SQL
+          # Create tables directly with SQL (bypass alembic to avoid pgvector import issues)
           python scripts/create_tables_direct.py
 
       - name: Start services
